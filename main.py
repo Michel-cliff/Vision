@@ -138,6 +138,8 @@ def main() -> None:
             demande = input("\n\nVous > ").strip()
         except (KeyboardInterrupt, EOFError):
             print("\nÀ demain.")
+            if voix:
+                voix.fermer()
             return
         if not demande:
             continue
@@ -147,11 +149,15 @@ def main() -> None:
             premiere = False
 
         print("\nVision > ", end="", flush=True)
+        sortie.nouveau_tour()
         try:
             reponse = cerveau.demander(
-                demande, sur_phrase=parler, sur_recherche=montrer_recherche
+                demande, sur_phrase=sortie.phrase, sur_recherche=sortie.recherche
             )
+            sortie.fin_de_tour()
         except KeyboardInterrupt:
+            if voix:
+                voix.couper()
             print("\n[interrompu]")
             continue
         print(f"\n\n[{duree_parlee(reponse)}]", file=sys.stderr)

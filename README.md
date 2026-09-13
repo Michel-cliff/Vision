@@ -40,6 +40,18 @@ Git Bash — s'y tromper donne `.venvScriptsactivate: command not found` :
 
 Puis demande-lui « briefing du matin ».
 
+## Avant de committer
+
+```bash
+./.venv/Scripts/python.exe -m ruff check --select F,E9 .
+./.venv/Scripts/python.exe tests/test_chemin_appel.py
+```
+
+Les deux existent parce qu'un `NameError` est passé en production : la classe
+`Sortie` avait été testée isolément, jamais branchée au cerveau. Ruff attrape
+les noms non définis, le test rejoue le chemin d'appel complet avec un faux
+client — sans toucher à l'API, donc gratuit et instantané.
+
 ## Comment c'est fait
 
 ```
