@@ -85,15 +85,28 @@ Deux fils, pas un : un seul fil qui synthétise puis joue laisserait un demi-
 seconde de blanc entre chaque phrase. Avec deux étages, la phrase suivante se
 fabrique pendant que la précédente se joue.
 
-### Le mot d'attente
+### Meubler l'attente
 
-Pendant les recherches, aucun texte n'est produit — jusqu'à une demi-minute de
-silence. L'agent dit donc « Je regarde ça », **une fois par tour**.
+Pendant les recherches, aucun texte n'est produit — vingt à trente secondes de
+silence. L'agent dit « Je regarde ça » au démarrage, puis relance toutes les
+sept secondes tant que rien n'arrive, avec des formulations différentes : trois
+fois la même phrase sonnerait plus artificiel que le silence.
 
-C'est l'application qui le dit, pas le modèle. Le prompt interdit au modèle
+Une relance ne part jamais par-dessus une phrase en cours (`Voix.occupee`) —
+sinon l'agent se coupe la parole. Elle s'arrête net dès que le vrai texte
+arrive.
+
+C'est l'application qui parle, pas le modèle. Le prompt interdit au modèle
 d'annoncer ses recherches, parce que venant de lui c'est du remplissage. Mais
 à l'oral le silence est pire — et l'application, elle, sait exactement quand
 une requête part.
+
+### Régler la longueur
+
+Le prompt disait « vise cent cinquante mots, pas plus de deux cents » : le
+modèle rendait cent quatre-vingt-dix-huit. Donner une fourchette fait viser le
+haut — il s'ancre sur le plus grand nombre énoncé. Un seul plafond, plus bas,
+présenté comme un plafond et non comme une cible.
 
 ### Trois décisions structurantes
 

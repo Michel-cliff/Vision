@@ -30,7 +30,7 @@ MAX_TOKENS = 600
 # rendait un tour d'horizon creux en s'en excusant. À 20, il cherchait une
 # demi-minute avant le premier mot. Monte-le si tu revois max_uses_exceeded,
 # baisse-le si l'attente te pèse.
-MAX_USES = 14
+MAX_USES = 10
 
 OUTILS = [
     {

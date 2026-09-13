@@ -68,6 +68,18 @@ class Voix:
         self._textes.join()
         self._audios.join()
 
+    def occupee(self) -> bool:
+        """A-t-elle quelque chose à dire là, tout de suite ?
+
+        Sert à ne pas empiler une relance d'attente par-dessus une phrase
+        encore en cours : on ne veut pas d'un agent qui se coupe la parole.
+        """
+        return (
+            not self._textes.empty()
+            or not self._audios.empty()
+            or pygame.mixer.music.get_busy()
+        )
+
     def couper(self) -> None:
         """Arrête net et vide les files. Servira à l'interruption, étape 4."""
         self._silence.set()

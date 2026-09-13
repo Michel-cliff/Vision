@@ -12,6 +12,7 @@ import argparse
 import locale
 import os
 import sys
+import threading
 from datetime import datetime, timezone
 
 from dotenv import load_dotenv
@@ -80,6 +81,17 @@ def duree_parlee(texte: str) -> str:
 # silence sont pires — et l'application, elle, sait qu'une requête est partie.
 ATTENTE = "Je regarde ça."
 
+# Les recherches suivantes prennent une vingtaine de secondes de plus, et le
+# mot d'attente ne se dit qu'une fois : on relance pour que le silence reste
+# habité. Formulations différentes — trois fois la même phrase sonnerait plus
+# artificiel que le silence lui-même.
+RELANCES = (
+    "Je croise deux ou trois sources.",
+    "Encore un instant, je vérifie.",
+    "Presque prêt.",
+)
+PAUSE_RELANCE = 7.0  # secondes de silence tolérées avant de relancer
+
 
 class Sortie:
     """Affiche, et parle si la voix est active.
@@ -92,11 +104,14 @@ class Sortie:
     def __init__(self, voix: Voix | None) -> None:
         self.voix = voix
         self.annonce_faite = False
+        self._arret = threading.Event()
+        self._veilleur: threading.Thread | None = None
 
     def nouveau_tour(self) -> None:
         self.annonce_faite = False
 
     def phrase(self, texte: str) -> None:
+        self._taire_les_relances()   # le vrai texte arrive : plus rien à meubler
         print(texte, end=" ", flush=True)
         if self.voix:
             self.voix.dire(texte)
@@ -107,14 +122,34 @@ class Sortie:
             if self.voix and not self.annonce_faite:
                 self.annonce_faite = True   # une seule fois par tour
                 self.voix.dire(ATTENTE)
+                self._lancer_les_relances()
         else:
             print(f" — « {requete} »", end="", flush=True, file=sys.stderr)
 
     def fin_de_tour(self) -> None:
+        self._taire_les_relances()
         if self.voix:
             # ne rends la main qu'une fois la dernière phrase prononcée :
             # sinon l'invite « Vous > » s'affiche pendant qu'il parle encore
             self.voix.attendre()
+
+    # ----------------------------------------------------- relances d'attente
+
+    def _lancer_les_relances(self) -> None:
+        self._arret.clear()
+        self._veilleur = threading.Thread(target=self._veiller, daemon=True)
+        self._veilleur.start()
+
+    def _taire_les_relances(self) -> None:
+        self._arret.set()
+
+    def _veiller(self) -> None:
+        """Relance tant que le modèle cherche, jamais par-dessus une phrase."""
+        i = 0
+        while not self._arret.wait(PAUSE_RELANCE):
+            if self.voix and not self.voix.occupee():
+                self.voix.dire(RELANCES[i % len(RELANCES)])
+                i += 1
 
 
 def main() -> None:
