@@ -19,9 +19,12 @@ from .prompt import SYSTEME
 # qu'un petit modèle fait mal — et Haiku n'a pas accès au web_search récent.
 MODELE = "claude-sonnet-5"
 
-# À l'oral, une réponse longue est une punition : on ne peut ni survoler
-# ni relire.
-MAX_TOKENS = 1200
+# Filet de sécurité, pas outil de cadrage : la longueur se règle dans le
+# prompt. À 1200 le plafond autorisait près de quatre minutes de parole —
+# l'agent n'était jamais coupé, il écrivait simplement trop long. 600 laisse
+# le double de la cible d'une minute, donc aucune troncature en plein mot,
+# tout en rattrapant un emballement.
+MAX_TOKENS = 600
 
 # Un briefing monde + France avec recoupement consomme beaucoup de requêtes.
 # À 8, l'agent s'arrêtait en plein travail et rendait un tour d'horizon creux

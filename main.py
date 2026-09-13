@@ -60,6 +60,18 @@ def aujourdhui() -> str:
     return datetime.now(timezone.utc).strftime("%A %d %B %Y")
 
 
+# Débit d'un journaliste radio en français. Sert à mesurer, pas à prédire
+# au mot près : ce qu'on veut savoir, c'est « est-ce qu'on tient la minute ».
+MOTS_PAR_MINUTE = 155
+
+
+def duree_parlee(texte: str) -> str:
+    mots = len(texte.split())
+    secondes = round(mots / MOTS_PAR_MINUTE * 60)
+    verdict = "ok" if secondes <= 70 else "trop long"
+    return f"{mots} mots, environ {secondes} s à voix haute — {verdict}"
+
+
 def parler(phrase: str) -> None:
     """L'étape 2 remplacera cette fonction par la synthèse vocale.
 
@@ -91,9 +103,11 @@ def main() -> None:
 
         print("\nVision > ", end="", flush=True)
         try:
-            cerveau.demander(demande, sur_phrase=parler)
+            reponse = cerveau.demander(demande, sur_phrase=parler)
         except KeyboardInterrupt:
             print("\n[interrompu]")
+            continue
+        print(f"\n\n[{duree_parlee(reponse)}]", file=sys.stderr)
 
 
 if __name__ == "__main__":
