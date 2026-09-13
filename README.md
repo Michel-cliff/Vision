@@ -18,12 +18,25 @@ Help keep you updated.
 
 ```bash
 python -m venv .venv
-.venv\Scripts\activate            # Windows
 pip install -r requirements.txt
-
-set ANTHROPIC_API_KEY=sk-ant-...  # Windows ; export sous macOS/Linux
-python main.py
 ```
+
+Puis, sans rien activer — ça marche dans n'importe quel shell :
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... ./.venv/Scripts/python.exe main.py   # Git Bash
+```
+
+Si tu préfères activer l'environnement, la commande dépend du shell. Sous
+Windows, `\` est un séparateur pour cmd mais un caractère d'échappement pour
+Git Bash — s'y tromper donne `.venvScriptsactivate: command not found` :
+
+| Shell | Activation | Variable |
+|---|---|---|
+| Git Bash | `source .venv/Scripts/activate` | `export CLE=...` |
+| cmd.exe | `.venv\Scripts\activate` | `set CLE=...` |
+| PowerShell | `.venv\Scripts\Activate.ps1` | `$env:CLE = "..."` |
+| macOS / Linux | `source .venv/bin/activate` | `export CLE=...` |
 
 Puis demande-lui « briefing du matin ».
 
