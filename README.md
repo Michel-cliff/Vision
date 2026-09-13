@@ -8,8 +8,8 @@ Help keep you updated.
 
 | Étape | État | Ce que ça fait |
 |---|---|---|
-| **1. Le cerveau** | ✅ | Claude + recherche web, diffusé phrase par phrase, au terminal |
-| 2. La voix | à venir | Synthèse vocale branchée sur le découpage déjà en place |
+| **1. Le cerveau** | ✅ | Claude + recherche web, diffusé phrase par phrase |
+| **2. La voix** | ✅ | Il parle, phrase par phrase, pendant que la suite s'écrit |
 | 3. L'oreille | à venir | Micro → texte |
 | 4. La conversation | à venir | Historique, interruption, reprise |
 | 5. Le confort | à venir | Qualité de voix, déploiement |
@@ -43,10 +43,45 @@ Puis demande-lui « briefing du matin ».
 ## Comment c'est fait
 
 ```
-main.py            boucle terminal, injecte la date, appelle le cerveau
+main.py            boucle terminal, met en scène (affiche et/ou parle)
 vision/prompt.py   le prompt système — le vrai produit, isolé pour son historique git
 vision/cerveau.py  l'appel Claude, la diffusion, le découpage en phrases
+vision/voix.py     synthèse et lecture, en tâche de fond
 ```
+
+Le cerveau ne connaît que deux rappels : « une phrase est prête », « une
+recherche a démarré ». Il ignore s'il y a un haut-parleur au bout — c'est
+`main.py` qui décide. D'où le mode `--muet`, qui sert à régler le texte sans
+attendre qu'il finisse de parler.
+
+## La voix
+
+Rien de natif à Claude : l'API n'a aucune sortie audio. On prend donc deux
+briques existantes.
+
+**edge-tts** pour la synthèse — gratuit, sans clé, voix neurales françaises,
+mesuré à 0,30 s jusqu'au premier son avec `fr-FR-DeniseNeural` (contre 1,48 s
+pour les voix multilingues, écartées pour ça). Réserve honnête : c'est un
+client non officiel d'un service Microsoft, ça peut casser du jour au
+lendemain. Le jour où ça arrive, seul `vision/voix.py` change — et le
+remplaçant documenté par Anthropic est ElevenLabs.
+
+**pygame.mixer** pour la lecture, qui joue le mp3 depuis la mémoire sans
+fichier temporaire.
+
+Deux fils, pas un : un seul fil qui synthétise puis joue laisserait un demi-
+seconde de blanc entre chaque phrase. Avec deux étages, la phrase suivante se
+fabrique pendant que la précédente se joue.
+
+### Le mot d'attente
+
+Pendant les recherches, aucun texte n'est produit — jusqu'à une demi-minute de
+silence. L'agent dit donc « Je regarde ça », **une fois par tour**.
+
+C'est l'application qui le dit, pas le modèle. Le prompt interdit au modèle
+d'annoncer ses recherches, parce que venant de lui c'est du remplissage. Mais
+à l'oral le silence est pire — et l'application, elle, sait exactement quand
+une requête part.
 
 ### Trois décisions structurantes
 

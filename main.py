@@ -8,6 +8,7 @@ l'agent est-il bon, et son texte est-il dicible ?
     python main.py
 """
 
+import argparse
 import locale
 import os
 import sys
@@ -26,6 +27,7 @@ for flux in (sys.stdout, sys.stderr):
 load_dotenv()
 
 from vision.cerveau import Cerveau  # noqa: E402
+from vision.voix import Voix  # noqa: E402
 
 
 def verifier_cle() -> None:
@@ -72,29 +74,63 @@ def duree_parlee(texte: str) -> str:
     return f"{mots} mots, environ {secondes} s à voix haute — {verdict}"
 
 
-def montrer_recherche(numero: int, requete: str | None) -> None:
-    """Le fil d'attente. Sans lui, l'écran reste vide pendant que l'agent
-    cherche — on croit à un plantage et on coupe."""
-    if requete is None:
-        print(f"\n  … recherche {numero}", end="", flush=True, file=sys.stderr)
-    else:
-        print(f" — « {requete} »", end="", flush=True, file=sys.stderr)
+# Ce que l'agent dit pendant qu'il cherche. C'est l'application qui le dit,
+# pas le modèle : le prompt interdit au modèle d'annoncer ses recherches, parce
+# que venant de lui c'est du remplissage. Mais à l'oral, quinze secondes de
+# silence sont pires — et l'application, elle, sait qu'une requête est partie.
+ATTENTE = "Je regarde ça."
 
 
-def parler(phrase: str) -> None:
-    """L'étape 2 remplacera cette fonction par la synthèse vocale.
+class Sortie:
+    """Affiche, et parle si la voix est active.
 
-    Tout le reste du programme est déjà écrit pour ça : le cerveau livre des
-    phrases complètes au fil de l'eau, pas un bloc final.
+    Le cerveau ne connaît que deux rappels : une phrase est prête, une
+    recherche a démarré. Toute la mise en scène est ici, pour qu'il n'ait
+    jamais à savoir s'il y a un haut-parleur au bout.
     """
-    print(phrase, end=" ", flush=True)
+
+    def __init__(self, voix: Voix | None) -> None:
+        self.voix = voix
+        self.annonce_faite = False
+
+    def nouveau_tour(self) -> None:
+        self.annonce_faite = False
+
+    def phrase(self, texte: str) -> None:
+        print(texte, end=" ", flush=True)
+        if self.voix:
+            self.voix.dire(texte)
+
+    def recherche(self, numero: int, requete: str | None) -> None:
+        if requete is None:
+            print(f"\n  … recherche {numero}", end="", flush=True, file=sys.stderr)
+            if self.voix and not self.annonce_faite:
+                self.annonce_faite = True   # une seule fois par tour
+                self.voix.dire(ATTENTE)
+        else:
+            print(f" — « {requete} »", end="", flush=True, file=sys.stderr)
+
+    def fin_de_tour(self) -> None:
+        if self.voix:
+            # ne rends la main qu'une fois la dernière phrase prononcée :
+            # sinon l'invite « Vous > » s'affiche pendant qu'il parle encore
+            self.voix.attendre()
 
 
 def main() -> None:
+    args = argparse.ArgumentParser(description="Vision — agent d'actualité")
+    args.add_argument("--muet", action="store_true",
+                      help="sans voix, pour régler le texte plus vite")
+    args.add_argument("--voix", default=None, help="nom de voix edge-tts")
+    opts = args.parse_args()
+
     verifier_cle()
     date = aujourdhui()
     cerveau = Cerveau()
-    print(f"— Vision. Nous sommes le {date}. Ctrl+C pour sortir.")
+    voix = None if opts.muet else Voix(**({"voix": opts.voix} if opts.voix else {}))
+    sortie = Sortie(voix)
+    etat = "muet" if opts.muet else f"voix {voix.voix}"
+    print(f"— Vision. Nous sommes le {date}. [{etat}] Ctrl+C pour sortir.")
 
     premiere = True
     while True:
