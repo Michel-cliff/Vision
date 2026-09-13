@@ -32,7 +32,6 @@ class FauxFlux:
 
 class FauxClient:
     def __init__(self, evenements):
-        outil = types.SimpleNamespace(type="server_tool_use", input={"query": "actualite IA"})
         self.messages = types.SimpleNamespace(
             stream=lambda **kw: FauxFlux(evenements))
 
