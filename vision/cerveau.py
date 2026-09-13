@@ -23,11 +23,17 @@ MODELE = "claude-sonnet-5"
 # ni relire.
 MAX_TOKENS = 1200
 
+# Un briefing monde + France avec recoupement consomme beaucoup de requêtes.
+# À 8, l'agent s'arrêtait en plein travail et rendait un tour d'horizon creux
+# en s'en excusant — le symptôme ressemblait à un défaut de prompt, c'était
+# un budget trop court.
+MAX_USES = 20
+
 OUTILS = [
     {
         "type": "web_search_20260209",
         "name": "web_search",
-        "max_uses": 8,
+        "max_uses": MAX_USES,
         "user_location": {
             "type": "approximate",
             "country": "FR",
@@ -45,6 +51,17 @@ FIN_DE_PHRASE = re.compile(r"[.!?…]+[\s»\"']*")
 ABREVIATIONS = frozenset(
     "M Mme Mlle MM Dr Pr St Ste etc cf av ap art p pp no n° éd vol ch fig".split()
 )
+
+
+# Le code d'erreur seul ne dit pas quoi faire. Celui-ci s'est présenté comme
+# un défaut de prompt — l'agent rendait un briefing creux en s'en excusant —
+# alors que c'était seulement un budget de recherches trop court.
+DIAGNOSTICS = {
+    "max_uses_exceeded": (
+        f"budget de {MAX_USES} recherches épuisé, la réponse est incomplète. "
+        f"Augmente MAX_USES dans vision/cerveau.py."
+    ),
+}
 
 
 def _est_vraie_fin(fragment: str) -> bool:
@@ -114,7 +131,8 @@ class Cerveau:
         for bloc in final.content:
             if bloc.type == "web_search_tool_result" and not isinstance(bloc.content, list):
                 code = getattr(bloc.content, "error_code", "inconnu")
-                print(f"\n[recherche en échec : {code}]", file=sys.stderr)
+                detail = DIAGNOSTICS.get(code, "")
+                print(f"\n[recherche en échec : {code}] {detail}", file=sys.stderr)
 
     @staticmethod
     def cout(final: anthropic.types.Message) -> str:
