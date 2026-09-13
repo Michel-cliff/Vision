@@ -26,11 +26,11 @@ MODELE = "claude-sonnet-5"
 # tout en rattrapant un emballement.
 MAX_TOKENS = 600
 
-# Un briefing monde + France avec recoupement consomme beaucoup de requêtes.
-# À 8, l'agent s'arrêtait en plein travail et rendait un tour d'horizon creux
-# en s'en excusant — le symptôme ressemblait à un défaut de prompt, c'était
-# un budget trop court.
-MAX_USES = 20
+# Le curseur latence / profondeur. À 8, l'agent s'arrêtait en plein travail et
+# rendait un tour d'horizon creux en s'en excusant. À 20, il cherchait une
+# demi-minute avant le premier mot. Monte-le si tu revois max_uses_exceeded,
+# baisse-le si l'attente te pèse.
+MAX_USES = 14
 
 OUTILS = [
     {
@@ -79,16 +79,28 @@ class Cerveau:
         self.client = client or anthropic.Anthropic()
         self.historique: list[dict] = []
 
-    def demander(self, message: str, sur_phrase: Callable[[str], None]) -> str:
+    def demander(
+        self,
+        message: str,
+        sur_phrase: Callable[[str], None],
+        sur_recherche: Callable[[int, str | None], None] | None = None,
+    ) -> str:
         """Un tour de conversation.
 
         `sur_phrase` est appelée dès qu'une phrase est complète. À l'étape 1
         elle affiche ; à l'étape 2 elle parlera.
+
+        `sur_recherche` est appelée à chaque requête web. Elle existe parce
+        qu'aucun texte n'est produit pendant que les outils tournent : sans
+        elle, l'écran reste vide une demi-minute et on croit à un plantage.
+        C'est aussi là que la voix glissera un « je regarde ça » à l'étape 2 —
+        le silence est encore plus gênant à l'oral qu'à l'écrit.
         """
         self.historique.append({"role": "user", "content": message})
 
         tampon = ""
         phrases: list[str] = []
+        n_recherches = 0
 
         def livrer(texte: str) -> None:
             texte = texte.strip()
@@ -106,16 +118,35 @@ class Cerveau:
             output_config={"effort": "medium"},
             messages=self.historique,
         ) as flux:
-            for morceau in flux.text_stream:
-                tampon += morceau
-                depuis = 0
-                while m := FIN_DE_PHRASE.search(tampon, depuis):
-                    if _est_vraie_fin(tampon[: m.end()]):
-                        livrer(tampon[: m.end()])
-                        tampon, depuis = tampon[m.end():], 0
-                    else:
-                        # abréviation : on saute ce point et on cherche le suivant
-                        depuis = m.end()
+            # On itère les événements plutôt que `flux.text_stream` : ce dernier
+            # ne rend que le texte, donc rien du tout tant que les recherches
+            # tournent.
+            for ev in flux:
+                bloc = getattr(ev, "content_block", None)
+                est_outil = bloc is not None and bloc.type == "server_tool_use"
+
+                if ev.type == "content_block_start" and est_outil:
+                    n_recherches += 1
+                    if sur_recherche:
+                        sur_recherche(n_recherches, None)
+
+                elif ev.type == "content_block_stop" and est_outil:
+                    # la requête n'est complète qu'ici : au start, l'input est vide
+                    requete = (bloc.input or {}).get("query") if isinstance(bloc.input, dict) else None
+                    if sur_recherche and requete:
+                        sur_recherche(n_recherches, requete)
+
+                elif ev.type == "text":
+                    tampon += ev.text
+                    depuis = 0
+                    while m := FIN_DE_PHRASE.search(tampon, depuis):
+                        if _est_vraie_fin(tampon[: m.end()]):
+                            livrer(tampon[: m.end()])
+                            tampon, depuis = tampon[m.end():], 0
+                        else:
+                            # abréviation : on saute ce point, on cherche le suivant
+                            depuis = m.end()
+
             livrer(tampon)
             final = flux.get_final_message()
 

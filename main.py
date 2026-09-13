@@ -72,6 +72,15 @@ def duree_parlee(texte: str) -> str:
     return f"{mots} mots, environ {secondes} s à voix haute — {verdict}"
 
 
+def montrer_recherche(numero: int, requete: str | None) -> None:
+    """Le fil d'attente. Sans lui, l'écran reste vide pendant que l'agent
+    cherche — on croit à un plantage et on coupe."""
+    if requete is None:
+        print(f"\n  … recherche {numero}", end="", flush=True, file=sys.stderr)
+    else:
+        print(f" — « {requete} »", end="", flush=True, file=sys.stderr)
+
+
 def parler(phrase: str) -> None:
     """L'étape 2 remplacera cette fonction par la synthèse vocale.
 
@@ -103,7 +112,9 @@ def main() -> None:
 
         print("\nVision > ", end="", flush=True)
         try:
-            reponse = cerveau.demander(demande, sur_phrase=parler)
+            reponse = cerveau.demander(
+                demande, sur_phrase=parler, sur_recherche=montrer_recherche
+            )
         except KeyboardInterrupt:
             print("\n[interrompu]")
             continue
