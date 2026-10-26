@@ -9,8 +9,8 @@ l'agent est-il bon, et son texte est-il dicible ?
 """
 
 import argparse
-import locale
 import os
+import re
 import sys
 import threading
 from datetime import datetime, timezone
@@ -28,6 +28,7 @@ for flux in (sys.stdout, sys.stderr):
 load_dotenv()
 
 from vision.cerveau import Cerveau  # noqa: E402
+from vision.rapides import JOURS, MOIS, Rapides  # noqa: E402
 from vision.voix import Voix  # noqa: E402
 
 
@@ -55,12 +56,12 @@ def aujourdhui() -> str:
 
     Le modèle ne connaît pas la date de façon fiable, et un briefing calé sur
     la mauvaise semaine est pire qu'aucun briefing.
+
+    Les noms sont écrits à la main : passer la locale en français cassait la
+    voix, edge-tts lisant avec strptime la date anglaise de son serveur.
     """
-    try:
-        locale.setlocale(locale.LC_TIME, "fr_FR.UTF-8")
-    except locale.Error:
-        pass  # la locale française n'est pas installée : on garde l'anglais
-    return datetime.now(timezone.utc).strftime("%A %d %B %Y")
+    d = datetime.now(timezone.utc)
+    return f"{JOURS[d.weekday()]} {d.day:02d} {MOIS[d.month - 1]} {d.year}"
 
 
 # Débit d'un journaliste radio en français. Sert à mesurer, pas à prédire
@@ -162,6 +163,7 @@ def main() -> None:
     verifier_cle()
     date = aujourdhui()
     cerveau = Cerveau()
+    rapides = Rapides(ville_par_defaut=os.environ.get("VISION_VILLE", "Paris"))
     voix = None if opts.muet else Voix(**({"voix": opts.voix} if opts.voix else {}))
     sortie = Sortie(voix)
     etat = "muet" if opts.muet else f"voix {voix.voix}"
@@ -177,6 +179,20 @@ def main() -> None:
                 voix.fermer()
             return
         if not demande:
+            continue
+
+        # Météo, « qui est… », jour férié : une API gratuite répond en une
+        # seconde, sans jetons. Sinon, ou au moindre doute, Claude.
+        rapide = rapides.repondre(demande)
+        if rapide:
+            print("\nVision > ", end="", flush=True)
+            sortie.nouveau_tour()
+            for p in re.split(r"(?<=[.!?])\s+", rapide):
+                sortie.phrase(p)
+            sortie.fin_de_tour()
+            # dans l'historique, pour que la question suivante ait le contexte
+            cerveau.historique += [{"role": "user", "content": demande}, {"role": "assistant", "content": rapide}]
+            print(f"\n\n[réponse rapide · {duree_parlee(rapide)}]", file=sys.stderr)
             continue
 
         if premiere:

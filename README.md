@@ -45,6 +45,7 @@ Puis demande-lui « briefing du matin ».
 ```bash
 ./.venv/Scripts/python.exe -m ruff check --select F,E9 .
 ./.venv/Scripts/python.exe tests/test_chemin_appel.py
+./.venv/Scripts/python.exe tests/test_rapides.py
 ```
 
 Les deux existent parce qu'un `NameError` est passé en production : la classe
@@ -58,8 +59,16 @@ client — sans toucher à l'API, donc gratuit et instantané.
 main.py            boucle terminal, met en scène (affiche et/ou parle)
 vision/prompt.py   le prompt système — le vrai produit, isolé pour son historique git
 vision/cerveau.py  l'appel Claude, la diffusion, le découpage en phrases
+vision/rapides.py  les réponses sans Claude : météo, « qui est… », jour férié
 vision/voix.py     synthèse et lecture, en tâche de fond
 ```
+
+Les réponses rapides passent avant Claude. La météo (Nominatim puis
+Open-Meteo), « qui est / c'est quoi » suivi d'un nom propre (Wikipédia) et le
+prochain jour férié (Nager.Date) répondent en une fraction de seconde, sans
+clé ni jetons ; la ville par défaut vient de `VISION_VILLE` (Paris sinon). Au
+moindre doute (homonymie, lieu introuvable, API en panne, sujet d'actualité
+écrit en minuscules) le module rend la main à Claude.
 
 Le cerveau ne connaît que deux rappels : « une phrase est prête », « une
 recherche a démarré ». Il ignore s'il y a un haut-parleur au bout — c'est

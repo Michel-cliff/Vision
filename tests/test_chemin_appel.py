@@ -68,5 +68,20 @@ def principal():
     print("\nOK — chemin d'appel complet, abreviation preservee")
 
 
+def date_sans_locale():
+    """La date en français ne doit pas changer la locale du programme.
+
+    setlocale(fr) cassait la voix : edge-tts lit la date anglaise de son
+    serveur (« Mon, 26 Oct ») avec strptime, qui suit la locale.
+    """
+    import time
+    from main import aujourdhui
+    texte = aujourdhui()
+    assert any(j in texte for j in ("lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche")), texte
+    time.strptime("Mon, 26 Oct 2026 10:21:02", "%a, %d %b %Y %H:%M:%S")
+    print("OK — date en français, locale intacte :", texte)
+
+
 if __name__ == "__main__":
     principal()
+    date_sans_locale()
